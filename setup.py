@@ -5,7 +5,7 @@ extension = Extension('ctea', ['ctea.c'])
 
 setup(
     name="ctea",
-    version="1.0.0",
+    version="1.0.1",
     author='wood',
     author_email='miraclerinwood@gmail.com',
     url='https://github.com/Rin-Wood/ctea',
