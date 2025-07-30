@@ -5,45 +5,47 @@ on:
 
 jobs:
   build_sdist:
-  name: Build sdist
-  runs-on: ubuntu-20.04
-  strategy:
-    matrix:
-      python-version: ['3.12']
-  steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        submodules: recursive
+    name: Build sdist
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        python-version: ['3.12']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
 
-    - name: Install dependencies
-      run: python -m pip install -U pip 'setuptools>=45' 'setuptools-scm>=6.2'
+      - name: Install build tools
+        run: |
+          python -m pip install -U pip
+          pip install build setuptools wheel
 
-    - name: Install build module
-      run: pip install build
+      - name: Debug Show working directory and files
+        run: |
+          echo "PWD = $(pwd)"
+          ls -al
+          echo "=== setup.py ==="
+          cat setup.py || echo "setup.py not found"
+          echo "=== pyproject.toml ==="
+          cat pyproject.toml || echo "pyproject.toml not found"
 
-    - name: Debug: Show working directory and files
-      run: |
-        echo "PWD = $(pwd)"
-        echo "=== Project root files ==="
-        ls -al
-        echo "=== setup.py content ==="
-        cat setup.py || echo "setup.py not found"
-        echo "=== pyproject.toml ==="
-        cat pyproject.toml || echo "pyproject.toml not found"
+      - name: Build sdist (with verbose)
+        run: python -m build --sdist --verbose
 
-    - name: Build sdist (with verbose)
-      run: python -m build --sdist --verbose
+      - name: Show dist contents
+        run: ls -lh dist/
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: wheels-dist
-        path: dist/*.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-dist
+          path: dist/*.tar.gz
 
   build_wheels:
     name: Build wheels
@@ -52,7 +54,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-22.04]
-        archs: ["x86_64, i686", "aarch64", "ppc64le", "s390x"]
+        archs: ["x86_64", "i686", "aarch64", "ppc64le", "s390x"]
         build: ["manylinux", "musllinux"]
         include:
           - os: windows-2022
@@ -83,7 +85,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}-${{ matrix.build }}-${{ matrix.archs }}
+          name: wheels-dist
           path: ./wheelhouse/*.whl
 
   upload_pypi:
@@ -95,18 +97,16 @@ jobs:
       url: https://pypi.org/project/ctea/
     permissions:
       id-token: write
+
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: sdist
+          name: wheels-dist
           path: dist
           merge-multiple: true
 
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: wheels-*
-          path: dist
-          merge-multiple: true
+      - name: Show dist directory contents before upload
+        run: ls -l dist/
 
       - name: Upload to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
