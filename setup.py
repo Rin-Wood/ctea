@@ -1,7 +1,12 @@
 from setuptools import setup, Extension
-import os
 
 extension = Extension('ctea', ['ctea.c'])
+
+try:
+    with open('README.md', 'r', encoding='utf-8') as f:
+        long_description = f.read()
+except Exception:
+    long_description = ''
 
 setup(
     name="ctea",
@@ -10,8 +15,8 @@ setup(
     author_email='miraclerinwood@gmail.com',
     url='https://github.com/Rin-Wood/ctea',
     description="TEA Decryption",
-    long_description=open('README.md', 'rb').read().decode('utf8'),
-	long_description_content_type='text/markdown',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     license="BSD",
     keywords="ctea",
     ext_modules=[extension],
