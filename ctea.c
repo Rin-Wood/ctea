@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-
+#define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include <stdint.h>
 
@@ -55,8 +55,29 @@ static void decdata(byte *data, int dlen) {
     int i, count;
     count = (dlen / 8) * 8;
     if (count > 0) {
-        for (i = 0; i < count; i+= 8)
+        for (i = 0; i < count; i += 8)
             dectea(data, i, i+4);
+    }
+}
+
+static void decode(byte *v, int v2, int v3, uint32_t *k){
+    uint v0 = bswap32(*(uint *)(v + v2)), v1 = bswap32(*(uint *)(v + v3)), delta = 0x9e3779b9, n = 32, sum = delta * 32;
+
+    while(n--) {
+        v1 -= ((v0<<4) + k[2]) ^ (v0 + sum) ^ ((v0>>5) + k[3]);
+        v0 -= ((v1<<4) + k[0]) ^ (v1 + sum) ^ ((v1>>5) + k[1]);
+        sum -= delta;
+    }
+    *(uint *)(v + v2) = bswap32(v0);
+    *(uint *)(v + v3) = bswap32(v1);
+}
+
+static void DecData(byte *data, int dlen, uint32_t *key) {
+    int i, count;
+    count = (dlen / 8) * 8;
+    if (count > 0) {
+        for (i = 0; i < count; i += 8)
+            decode(data, i, i+4, key);
     }
 }
 
@@ -72,8 +93,44 @@ static PyObject* decrypt(PyObject* self, PyObject* args) {
     Py_RETURN_NONE;
 }
 
+static PyObject* dec(PyObject* self, PyObject* args) {
+    const char *data;
+    Py_ssize_t dLen;
+    const char *keyBytes;
+    Py_ssize_t kLen;
+
+    if (!PyArg_ParseTuple(args, "y#y#", &data, &dLen, &keyBytes, &kLen)) {
+        return NULL;
+    }
+
+    if (kLen != 16) {
+        PyErr_SetString(PyExc_ValueError, "Key length must be 16 bytes");
+        return NULL;
+    }
+
+    if (dLen % 8 != 0) {
+        PyErr_SetString(PyExc_ValueError, "Input data length must be multiple of 8");
+        return NULL;
+    }
+
+    PyObject *decData = PyBytes_FromStringAndSize(NULL, dLen);
+    if (!decData)
+        return NULL;
+
+    char *result_buf = PyBytes_AsString(decData);
+    memcpy(result_buf, data, dLen);
+
+    uint key[4];
+    for (int i = 0; i < 4; i++) {
+        key[i] = bswap32(*(uint *)(keyBytes + i * 4));
+    }
+    DecData((byte *)result_buf, (int)dLen, key);
+    return decData;
+}
+
 static PyMethodDef TeaMethods[] = {
     {"decrypt", (PyCFunction)decrypt, METH_VARARGS, "Decrypt TEA"},
+    {"dec", (PyCFunction)dec, METH_VARARGS, "Decrypt TEA"},
     {NULL, NULL, 0, NULL}
 };
 
