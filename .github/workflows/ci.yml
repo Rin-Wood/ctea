@@ -5,34 +5,49 @@ on:
 
 jobs:
   build_sdist:
-    name: Build sdist
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: recursive
+  name: Build sdist
+  runs-on: ubuntu-20.04
+  strategy:
+    matrix:
+      python-version: ['3.12']
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        submodules: recursive
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
 
-      - name: Install build tools
-        run: |
-          python -m pip install -U pip setuptools setuptools-scm build
+    - name: Install dependencies
+      run: python -m pip install -U pip 'setuptools>=45' 'setuptools-scm>=6.2'
 
-      - name: Build sdist
-        run: python -m build --sdist
+    - name: Install build module
+      run: pip install build
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: sdist
-          path: dist/*.tar.gz
+    - name: Debug: Show working directory and files
+      run: |
+        echo "PWD = $(pwd)"
+        echo "=== Project root files ==="
+        ls -al
+        echo "=== setup.py content ==="
+        cat setup.py || echo "setup.py not found"
+        echo "=== pyproject.toml ==="
+        cat pyproject.toml || echo "pyproject.toml not found"
+
+    - name: Build sdist (with verbose)
+      run: python -m build --sdist --verbose
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: wheels-dist
+        path: dist/*.tar.gz
 
   build_wheels:
     name: Build wheels
-    needs: build_sdist   # ✅ 确保 sdist 成功后才会执行
+    needs: build_sdist
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
