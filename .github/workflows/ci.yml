@@ -12,6 +12,8 @@ jobs:
       matrix:
         python-version: ['3.10']
     steps:
+      - name: Start log
+        run: echo "== runner started =="
       - name: Checkout code
         uses: actions/checkout@v4
         with:
